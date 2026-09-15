@@ -33,12 +33,6 @@ jobs:
           sudo apt-get install --no-install-recommends -y gettext qt6-l10n-tools
           echo "/usr/lib/qt6/bin" >> "$GITHUB_PATH"
 
-      - name: Report tool versions
-        run: |
-          lconvert -version
-          lrelease -version
-          msgfmt --version
-
       - name: Build translations
         working-directory: translations
         run: ./release.sh
