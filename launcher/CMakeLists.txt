@@ -1211,6 +1211,37 @@ qt_add_resources(LAUNCHER_RESOURCES
     "${CMAKE_CURRENT_BINARY_DIR}/../${Launcher_Branding_LogoQRC}"
 )
 
+######## Translations ########
+
+set(TRANSLATIONS_SOURCE_DIR "${CMAKE_SOURCE_DIR}/translations")
+set(TRANSLATIONS_OUTPUT_DIR "${CMAKE_CURRENT_BINARY_DIR}/translations")
+
+find_package(Qt6 QUIET COMPONENTS LinguistTools)
+
+if(Qt6LinguistTools_FOUND)
+    file(GLOB TRANSLATION_SOURCES "${TRANSLATIONS_SOURCE_DIR}/*.ts")
+
+    add_custom_command(
+        OUTPUT "${TRANSLATIONS_OUTPUT_DIR}/qrc_translations.cpp"
+        COMMAND
+            "${CMAKE_COMMAND}"
+            "-DTRANSLATIONS_SOURCE_DIR=${TRANSLATIONS_SOURCE_DIR}"
+            "-DTRANSLATIONS_OUTPUT_DIR=${TRANSLATIONS_OUTPUT_DIR}"
+            "-DLRELEASE_BIN=$<TARGET_FILE:Qt6::lrelease>"
+            -P "${CMAKE_SOURCE_DIR}/cmake/GenerateTranslations.cmake"
+        COMMAND Qt6::rcc --name translations "${TRANSLATIONS_OUTPUT_DIR}/translations.qrc" -o
+                "${TRANSLATIONS_OUTPUT_DIR}/qrc_translations.cpp"
+        DEPENDS ${TRANSLATION_SOURCES} "${CMAKE_SOURCE_DIR}/cmake/GenerateTranslations.cmake"
+        COMMENT "Compiling translations"
+        VERBATIM
+    )
+
+    set_source_files_properties("${TRANSLATIONS_OUTPUT_DIR}/qrc_translations.cpp" PROPERTIES GENERATED TRUE)
+    list(APPEND LAUNCHER_RESOURCES "${TRANSLATIONS_OUTPUT_DIR}/qrc_translations.cpp")
+else()
+    message(WARNING "Qt LinguistTools was not found, translations will be fetched at runtime instead of being bundled")
+endif()
+
 ######## Windows resource files ########
 if(WIN32)
     set(LAUNCHER_RCS ${CMAKE_CURRENT_BINARY_DIR}/../${Launcher_Branding_WindowsRC})

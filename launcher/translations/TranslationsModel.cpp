@@ -37,6 +37,8 @@
 #include "TranslationsModel.h"
 
 #include <QDebug>
+#include <QDir>
+#include <QFile>
 #include <algorithm>
 #include <memory>
 #include <utility>
@@ -65,6 +67,42 @@ QString getSystemLocaleName()
 QString getSystemLanguage()
 {
     return getSystemLocaleName().split('_').front();
+}
+
+QByteArray readWholeFile(const QString& path)
+{
+    QFile file(path);
+    if (!file.open(QIODevice::ReadOnly)) {
+        return {};
+    }
+    return file.readAll();
+}
+
+// Translations are loaded from disk, so the ones compiled into the binary have to be unpacked
+// into the translation directory before the model scans it. The bundled index doubles as the
+// marker: when it matches what is already on disk the .qm files are in place as well.
+void installBundledTranslations(const QDir& target)
+{
+    const QDir bundled(":/translations");
+    if (!bundled.exists()) {
+        return;
+    }
+
+    const auto bundledIndex = readWholeFile(bundled.absoluteFilePath("index_v2.json"));
+    if (bundledIndex.isEmpty() || bundledIndex == readWholeFile(target.absoluteFilePath("index_v2.json"))) {
+        return;
+    }
+
+    const auto names = bundled.entryList(QDir::Files);
+    for (const auto& name : names) {
+        const auto destination = target.absoluteFilePath(name);
+        QFile::setPermissions(destination, QFileDevice::ReadOwner | QFileDevice::WriteOwner);
+        QFile::remove(destination);
+        if (!QFile::copy(bundled.absoluteFilePath(name), destination)) {
+            qWarning() << "Could not install bundled translation" << name;
+        }
+    }
+    qDebug() << "Installed" << names.size() << "bundled translations";
 }
 }  // namespace
 
@@ -184,6 +222,7 @@ TranslationsModel::TranslationsModel(const QString& path, QObject* parent) : QAb
     d->m_dir.setPath(path);
     d->m_selectedLanguage = APPLICATION->settings()->get("Language").toString();
     FS::ensureFolderPathExists(path);
+    installBundledTranslations(d->m_dir);
     reloadLocalFiles();
 
     d->watcher = new QFileSystemWatcher(this);

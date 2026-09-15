@@ -1044,8 +1044,9 @@ Application::Application(int& argc, char** argv) : QApplication(argc, argv)
 
     // load translations
     {
+        // the model unpacks the bundled translations itself and only reaches out to the network
+        // when the build carried none
         m_translations.reset(new TranslationsModel("translations"));
-        m_translations->downloadIndex();
         qInfo() << "Your language is" << m_translations->selectedLanguage();
         qInfo() << "<> Translations loaded.";
     }
