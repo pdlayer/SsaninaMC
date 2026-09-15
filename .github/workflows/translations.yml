@@ -1,0 +1,57 @@
+name: Translations
+
+on:
+  push:
+    branches:
+      - develop
+    paths:
+      - "translations/**"
+      - ".github/workflows/translations.yml"
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build and publish
+    runs-on: ubuntu-24.04
+
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Install translation tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y gettext qt6-l10n-tools
+          echo "/usr/lib/qt6/bin" >> "$GITHUB_PATH"
+
+      - name: Report tool versions
+        run: |
+          lconvert -version
+          lrelease -version
+          msgfmt --version
+
+      - name: Build translations
+        working-directory: translations
+        run: ./release.sh
+
+      - name: Validate index
+        working-directory: translations
+        run: |
+          test -f build/index_v2.json
+          python3 -c "import json; d = json.load(open('build/index_v2.json', encoding='utf-8')); assert d['file_type'] == 'MMC-TRANSLATION-INDEX', d['file_type']; assert d['version'] == 2, d['version']; print(len(d['languages']), 'languages')"
+
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          publish_dir: translations/build
+          publish_branch: gh-pages
+          github_token: ${{ secrets.GITHUB_TOKEN }}
